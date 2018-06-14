@@ -95,11 +95,14 @@
     integer, parameter :: NonLinear_none=0, NonLinear_Pk =1, NonLinear_Lens=2
     integer, parameter :: NonLinear_both=3  !JD 08/13 added so both can be done
 
+    !maximum number of bins
+    integer, parameter :: maxbins = 1000
     ! Main parameters type
     type CAMBparams
 
         logical   :: WantCls, WantTransfer
         logical   :: WantScalars, WantTensors, WantVectors
+        logical   :: want_background 
         logical   :: DoLensing
         logical   :: want_zstar, want_zdrag     !!JH for updated BAO likelihood.
         logical   :: PK_WantTransfer             !JD 08/13 Added so both NL lensing and PK can be run at the same time
@@ -121,6 +124,15 @@
         real(dl)  :: Nu_mass_fractions(max_nu) !The ratios of the total densities
         integer   :: Nu_mass_numbers(max_nu) !physical number per eigenstate
 
+!FGmod:binnedw
+        integer                              :: model                 !selects the specific model to use
+        real(dl)                             :: startred, endred      !redshift limits for differential equation
+!        real(dl)                             :: w                     !working only with constant for now (effectively 2 bins). TO BE CHANGED
+        integer                              :: nb                    !number of redshift bins
+        real(dl)                             :: s                     !smoothing facto for tanh connection in binned functions
+        real(dl), dimension(:), allocatable  :: zb                    !right margin of redshift bins (first left margin is always zero)
+        real(dl), dimension(:), allocatable  :: wb                    !value of wb within each redshift bin
+        real(dl)                             :: corrlen               !correlation lenght for gaussian process reconstruction
         integer   :: Scalar_initial_condition
         !must be one of the initial_xxx values defined in GaugeInterface
 
@@ -1257,6 +1269,12 @@
     real(dl), allocatable :: outarr(:,:)
     integer unit
     character(LEN=name_tag_len) :: cov_names((3+num_redshiftwindows)**2)
+    !MMmod: this outputs d_A(z)---------------------------
+    real(dl) :: da_red, da_func
+    integer  :: da_ind
+    integer, parameter :: da_num = 1000
+    real(dl), parameter :: da_maxred = 5._dl
+    !-----------------------------------------------------
 
 
     if (present(factor)) then
@@ -1264,6 +1282,16 @@
     else
         fact =1
     end if
+    !MMmod: this outputs d_A(z)---------------------------
+    if (CP%want_background) then
+    open(42, file='test_da.dat')
+    do da_ind=1,da_num
+       da_red = (da_ind-1)*da_maxred/(da_num-1)
+       write(42,*) da_red, AngularDiameterDistance(da_red)
+    end do
+    close(42)
+    end if    
+    !-----------------------------------------------------
 
     if (CP%WantScalars .and. ScalFile /= '') then
         last_C=min(C_PhiTemp,C_last)

@@ -35,6 +35,8 @@
         MatterPowerFileNames(max_transfer_redshifts), outroot, version_check
     real(dl) output_factor, nmassive
 
+    !auxiliary variable for coupling bins
+    character(LEN=Ini_max_string_len) binnum
 #ifdef WRITE_FITS
     character(LEN=Ini_max_string_len) FITSfilename
 #endif
@@ -58,6 +60,7 @@
     call CAMB_SetDefParams(P)
 
     P%WantScalars = Ini_Read_Logical('get_scalar_cls')
+    P%want_background = Ini_Read_Logical('get_background')
     P%WantVectors = Ini_Read_Logical('get_vector_cls',.false.)
     P%WantTensors = Ini_Read_Logical('get_tensor_cls',.false.)
 
@@ -199,6 +202,38 @@ end if
         P%omegav = Ini_Read_Double('omega_lambda')
         P%omegan = Ini_Read_Double('omega_neutrino')
     end if
+
+
+    !reading parameters for binning
+    P%model = Ini_Read_Int('model_bin',1)
+    P%endred     = Ini_Read_Double('ending_z',10._dl)
+
+
+    P%nb = Ini_Read_Int('num_bins',1)
+    if (.not.allocated(P%zb)) allocate(P%zb(P%nb),P%wb(P%nb))
+    do i=1,P%nb
+       write(binnum,*) i
+       P%zb(i) = Ini_Read_Double('bin_z_'//trim(adjustl(binnum)))
+       P%wb(i) = Ini_Read_Double('bin_w_'//trim(adjustl(binnum)),0._dl)
+    end do
+    if (P%zb(P%nb).gt.P%endred) then
+       write(*,*) 'WARNING!!!'
+       write(*,*) 'final redshift for ODE (',P%endred,') is lower than last bin margin ',P%zb(P%nb)
+       write(*,*) 'You need final redshift to be higher. Fix this and re-run the code. '
+       stop
+    end if
+
+    !reading specific parameters for different models
+    if (P%model.eq.2) P%s= Ini_Read_Double('smooth_factor',10._dl)
+
+    if (P%model.eq.3) P%corrlen = Ini_Read_Double('correlation_length',1._dl)
+    
+    
+    if (P%model.gt.3) then
+       write(*,*) 'ONLY BINNED COUPLING AND GP IMPLEMENTED AT THE MOMENT'
+       write(*,*) 'PLEASE WAIT FOR MORE FANCY STUFF!'
+    end if
+
 
     P%tcmb   = Ini_Read_Double('temp_cmb',COBE_CMBTemp)
     P%yhe    = Ini_Read_Double('helium_fraction',0.24_dl)

@@ -464,24 +464,37 @@ end module mgvariables
 
     end subroutine setddwa
 
-
+!FG:binnedw
     function w_de(a)
-    real(dl) :: w_de, al
+    use binnedw 
+    real(dl) :: w_de, al, z
     real(dl), intent(IN) :: a
+    logical :: cpl
 
-    if(.not. use_tabulated_w) then
-        w_de=w_lam+wa_ppf*(1._dl-a)
+    integer :: i
+
+    cpl=.false.  !se usare o meno cpl parametrization
+  
+    !z= (1/a) -1
+    !MMmod: binned w
+    if (CP%model.eq.0) then 
+       if(.not. use_tabulated_w) then
+           w_de=w_lam+wa_ppf*(1._dl-a)
+       else
+           al=dlog(a)
+           if(al.lt.a_ppf(1)) then
+               w_de=w_ppf(1)                   !if a < minimum a from wa.dat
+           elseif(al.gt.a_ppf(nw_ppf)) then
+               w_de=w_ppf(nw_ppf)              !if a > maximus a from wa.dat
+           else
+               call cubicsplint(a_ppf,w_ppf,ddw_ppf,nw_ppf,al,w_de)
+           endif
+       endif
     else
-        al=dlog(a)
-        if(al.lt.a_ppf(1)) then
-            w_de=w_ppf(1)                   !if a < minimum a from wa.dat
-        elseif(al.gt.a_ppf(nw_ppf)) then
-            w_de=w_ppf(nw_ppf)              !if a > maximus a from wa.dat
-        else
-            call cubicsplint(a_ppf,w_ppf,ddw_ppf,nw_ppf,al,w_de)
-        endif
-    endif
+       call get_wofz(CP, a, w_de)
+    end if
     end function w_de  ! equation of state of the PPF DE
+
 
 
     function drdlna_de(al)
@@ -510,25 +523,35 @@ end module mgvariables
     call spline(ade,rde,nde,rlo,rhi,ddrde)
     end subroutine interpolrde
 
+!FGmod:binnedw
     function grho_de(a)  !8 pi G a^4 rho_de
+    use binnedw
     real(dl) :: grho_de, al, fint
     real(dl), intent(IN) :: a
 
-    if(.not. use_tabulated_w) then
-        grho_de=grhov*a**(1._dl-3.*w_lam-3.*wa_ppf)*exp(-3.*wa_ppf*(1._dl-a))
+    !MMmod: binned w
+    if (CP%model.eq.0) then
+       if(.not. use_tabulated_w) then
+           grho_de=grhov*a**(1._dl-3.*w_lam-3.*wa_ppf)*exp(-3.*wa_ppf*(1._dl-a))
+       else
+           if(a.eq.0.d0)then
+               grho_de=0.d0      !assume rho_de*a^4-->0, when a-->0, OK if w_de always <0.
+           else
+               al=dlog(a)
+               if(al.lt.ade(1))then
+                   fint=rde(1)*(a/amin)**(1.-3.*w_de(amin))    !if a<amin, assume here w=w_de(amin)
+               else              !if amin is small enough, this extrapolation will be unnecessary.
+                   call cubicsplint(ade,rde,ddrde,nde,al,fint)
+               endif
+               grho_de=grhov*fint
+           endif
+       endif
     else
-        if(a.eq.0.d0)then
-            grho_de=0.d0      !assume rho_de*a^4-->0, when a-->0, OK if w_de always <0.
-        else
-            al=dlog(a)
-            if(al.lt.ade(1))then
-                fint=rde(1)*(a/amin)**(1.-3.*w_de(amin))    !if a<amin, assume here w=w_de(amin)
-            else              !if amin is small enough, this extrapolation will be unnecessary.
-                call cubicsplint(ade,rde,ddrde,nde,al,fint)
-            endif
-            grho_de=grhov*fint
-        endif
-    endif
+       call get_rhode(a,grho_de)
+       !grho_de is only the time dependent part as it comes out of the subroutine
+       !it needs to be multiplied by grhov to be the quantity used later
+       grho_de = grhov*grho_de*a**4._dl
+    end if
     end function grho_de
 
     !-------------------------------------------------------------------
@@ -580,28 +603,50 @@ end module mgvariables
     end function GetOmegak
 
 
-    subroutine init_background
+!FGmod:binnedw
+    subroutine init_background  
     use LambdaGeneral
+    use binnedw 
     !This is only called once per model, and is a good point to do any extra initialization.
     !It is called before first call to dtauda, but after
     !massive neutrinos are initialized and after GetOmegak
-    is_cosmological_constant = .not. use_tabulated_w .and. w_lam==-1_dl .and. wa_ppf==0._dl
+
+    !MMmod: w_binned----------------------------------
+    is_cosmological_constant = .not. use_tabulated_w .and. w_lam==-1_dl .and. wa_ppf==0._dl .and. CP%model==0
+
+    if (CP%model.gt.0) then
+       is_cosmological_constant = .true.
+       if (any(CP%wb.ne.-1._dl)) is_cosmological_constant = .false.
+    end if
+
+    if (CP%model.gt.0) call calc_w_de(CP)
+    !-------------------------------------------------
+    
+      
     end  subroutine init_background
 
 
     !Background evolution
     function dtauda(a)
+    use binnedw
     !get d tau / d a
     use precision
     use ModelParams
     use MassiveNu
     use LambdaGeneral
     implicit none
-    real(dl) dtauda
+    real(dl) dtauda, z
     real(dl), intent(IN) :: a
     real(dl) rhonu,grhoa2, a2
     integer nu_i
 
+    real(dl), parameter   :: eps=1.e-12 !avoids 1/0
+
+    if (a.gt.0._dl) then
+        z = -1+1._dl/a
+    else
+        z = -1+1._dl/(a+eps)
+    end if
     a2=a**2
 
     !  8*pi*G*rho*a**4.
