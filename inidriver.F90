@@ -208,8 +208,9 @@ end if
     P%model = Ini_Read_Int('model_bin',1)
     P%endred     = Ini_Read_Double('ending_z',10._dl)
 
-
+    
     P%nb = Ini_Read_Int('num_bins',1)
+    P%w0 = Ini_Read_Int('bin_w_0',-1)
     if (.not.allocated(P%zb)) allocate(P%zb(P%nb),P%wb(P%nb))
     do i=1,P%nb
        write(binnum,*) i
