@@ -37,7 +37,7 @@ use ModelParams
          z = -1+1._dl/(a+eps)
       end if
 
-      if (CP%mode.eq.theta_bin) then        
+      if (CP%model.eq.theta_bin) then        
          if (z.ge.CP%zb(CP%nb)) then
             wde = CP%wb(CP%nb)
          else
@@ -50,7 +50,7 @@ use ModelParams
          end if
          
 
-      else if (CP%mode.eq.smooth_bin) then
+      else if (CP%model.eq.smooth_bin) then
          if (z.ge.CP%zb(CP%nb)) then
             wde = CP%wb(CP%nb)
          else
@@ -64,7 +64,7 @@ use ModelParams
             end do
 
          end if
-      else if (CP%mode.eq.GP) then
+      else if (CP%model.eq.GP) then
          if ((z.ge.binned_z(1)).and.(z.le.binned_z(nsteps))) then
             wde = ispline(z, binned_z, binned_w, b1, c1, d1, nsteps)
          else
@@ -83,12 +83,7 @@ use ModelParams
 
 
 !Binning for integration------------------
-
-      if ((CP%mode.eq.theta_bin).or.(CP%mode.eq.smooth_bin)) then
-         final_z=CP%zb(CP%nb)
-      else if (CP%mode.eq.GP) then
-         final_z=binned_z(nsteps)
-      end if
+      final_z=CP%zb(CP%nb)
 
       if (debugging) write(*,*) final_z
 
@@ -168,7 +163,7 @@ use ModelParams
       nlbins=(CP%nb)-1
 
       if (debugging) then
-         if ((CP%mode.eq.theta_bin).or.(CP%mode.eq.smooth_bin)) then
+         if ((CP%model.eq.theta_bin).or.(CP%model.eq.smooth_bin)) then
             write(*,*) 'num_bins=',CP%nb
             do i=1,CP%nb
                write(*,*) 'redshift',i,'=',CP%zb(i)
@@ -183,7 +178,7 @@ use ModelParams
 
 
       !Gaussian process interface
-      if (CP%mode.eq.GP) then
+      if (CP%model.eq.GP) then
 
          !Setting GP redshift to median redshift of each bin
          gpa(1) = (initial_a+CP%ab(1))/2
@@ -211,7 +206,7 @@ use ModelParams
 
          !write(*,*) 'scale factors mediani', abins
 
-         if (CP%mode.eq.GP) then
+         if (CP%model.eq.GP) then
             if (debugging) write(*,*) 'WORKING WITH GP'
             !here needs the call to script with no baseline
 
@@ -260,7 +255,7 @@ use ModelParams
          call newspline(binned_z,binned_w, b1, c1, d1, nsteps)
          !-----------------------------------------------------------
 
-     else if (CP%mode.gt.3) then
+     else if (CP%model.gt.3) then
          write(*,*) "THIS MODEL DOESN'T EXIST!!!!"
          stop
      end if
