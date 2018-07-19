@@ -531,7 +531,7 @@ use ModelParams
             call get_dotmu(1/(1+redshift), dotmutest)
             call get_dotsigma(1/(1+redshift), dotsigmatest)
             !write(40,*) redshift, mutest, sigmatest
-            gammatest =  (2*sigmatest/mutest)-1 
+            gammatest =  (2._dl*sigmatest/mutest)-1._dl 
             call get_dotgamma(1/(1+redshift), dotgammatest)
             write(56,*) 1/(1+redshift), gammatest, dotgammatest
             write(57,*) 1/(1+redshift), mutest, dotmutest

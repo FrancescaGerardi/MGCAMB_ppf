@@ -2012,10 +2012,6 @@ real(dl) :: MG_rhoDeltadot, term0, dgpidot
 
     adotoa=sqrt((grho+grhok)/3)
 
-!FGmod--------------
-!    write(*,*) 'dgrho', dgrho
-!    write(*,*) 'dgq', dgq
-!-------------------
     
 !****************************************************************
 !* MGCAMB:
@@ -2076,12 +2072,10 @@ end if
             clxg=2*(grhoc_t*clxc+grhob_t*clxb)/3/k**2
             qg= clxg*k/sqrt((grhoc_t+grhob_t)/3)*(2/3._dl)
             qgdot =yprime(EV%g_ix+1)
-!FG:diverso
             pig=0
             pigdot=0
             octg=0
             octgprime=0
-!-----------------
         end if ! tempmodel /= 0
 
     else
@@ -2213,6 +2207,7 @@ else !GR limit ( model = 0 )
 
     z=(0.5_dl*dgrho/k + etak)/adotoa
     sigma=(z+1.5_dl*dgq/k2)/EV%Kf(1)
+
 end if
 
 !* MGCAMB mod: end
@@ -2227,6 +2222,7 @@ end if
             grhov_t*(1+w_eff)*k*z/adotoa -2._dl*k2*EV%Kf(1)*(yprime(EV%w_ix)/adotoa-2._dl*y(EV%w_ix))
         ppiedot=ppiedot*adotoa/EV%Kf(1)
     end if
+
 
     polter = 0.1_dl*pig+9._dl/15._dl*ypol(2)
 
@@ -3020,6 +3016,9 @@ real(dl) MGQ,MGR,MGQdot, MGRdot, fQ, k2alpha, MG_phi, MG_psi, MG_phidot
     end if
 
     grho = grho_matter+grhor_t+grhog_t+grhov_t
+
+    dgrho = dgrho_matter
+
 !* MGCAMB works only with flat models
     if (CP%flat) then
         adotoa=sqrt(grho/3)
@@ -3031,9 +3030,6 @@ real(dl) MGQ,MGR,MGQdot, MGRdot, fQ, k2alpha, MG_phi, MG_psi, MG_phidot
     Stop " MGCAMB is working for flat universe at the moment. Please check www.sfu.ca/~aha25/MGCAMB.htmlfor updates."
 
     end if
-
-    dgrho = dgrho_matter
-
 
 
     ! if (w_lam /= -1 .and. w_Perturb) then
@@ -3061,14 +3057,14 @@ else
    end if
 end if
 
-!FG?LO METTO??
-     if (.not. is_cosmological_constant.and. ay(1).lt.GRtrans) then 
-        clxq=ay(EV%w_ix)
-        vq=ay(EV%w_ix+1)
-        dgrho=dgrho + clxq*grhov_t
-        dgq = dgq + vq*grhov_t*(1+w_lam)
-     end if
-!----------------------------
+
+!     if (.not. is_cosmological_constant.and. ay(1).lt.GRtrans) then 
+!        clxq=ay(EV%w_ix)
+!        vq=ay(EV%w_ix+1)
+!        dgrho=dgrho + clxq*grhov_t
+!        dgq = dgq + vq*grhov_t*(1+w_lam)
+!     end if
+
 
     if (EV%no_nu_multpoles) then
         !RSA approximation of arXiv:1104.2933, dropping opactity terms in the velocity
@@ -3130,42 +3126,6 @@ end if
     pb43=4._dl/3*photbar
 
     ayprime(1)=adotoa*a
-
-!FGmod
-
-!    if (.not. is_cosmological_constant) then
-     if (.not. is_cosmological_constant .and. ay(1).lt.GRtrans) then
-        !ppf
-        grhoT = grho - grhov_t
-        vT= dgq/(grhoT+gpres)
-        Gamma=ay(EV%w_ix)
-
-        !sigma for ppf
-        sigma = (etak + (dgrho + 3*adotoa/k*dgq)/2._dl/k)/EV%kf(1) - k*Gamma
-        sigma = sigma/adotoa
-
-        S_Gamma=grhov_t*(1+w_eff)*(vT+sigma)*k/adotoa/2._dl/k2
-        ckH=c_Gamma_ppf*k/adotoa
-        Gammadot=S_Gamma/(1+ckH*ckH)- Gamma -ckH*ckH*Gamma
-        Gammadot=Gammadot*adotoa
-        ayprime(EV%w_ix)=Gammadot
-
-        if(ckH*ckH.gt.3.d1)then
-            Gamma=0
-            Gammadot=0.d0
-            ayprime(EV%w_ix)=Gammadot
-        endif
-
-        Fa=1+3*(grhoT+gpres)/2._dl/k2/EV%kf(1)
-        dgqe=S_Gamma - Gammadot/adotoa - Gamma
-        dgqe=-dgqe/Fa*2._dl*k*adotoa + vT*grhov_t*(1+w_eff)
-        dgrhoe=-2*k2*EV%kf(1)*Gamma-3/k*adotoa*dgqe
-        dgrho=dgrho+dgrhoe
-        dgq=dgq+dgqe
-
-        EV%dgrho_e_ppf=dgrhoe
-        EV%dgq_e_ppf=dgqe
-    end if
 
 ! MGCAMB: anisotropic contribution from massive neutrinos
 dgpi = 0
@@ -3296,10 +3256,42 @@ if (tempmodel /= 0) then
         MG_phidot = etadot - adotoa * (MG_psi - adotoa * MG_alpha)- Hdot * MG_alpha
 
     end if
-ayprime(2)= k*etadot
+    ayprime(2)= k*etadot
 else !GR limit ( model = 0 )
+!FGmod----------------------------------------------------------------------------------
+    if (.not. is_cosmological_constant) then
+        !ppf
+        grhoT = grho - grhov_t
+        vT= dgq/(grhoT+gpres)
+        Gamma=ay(EV%w_ix)
 
+        !sigma for ppf
+        sigma = (etak + (dgrho + 3*adotoa/k*dgq)/2._dl/k)/EV%kf(1) - k*Gamma
+        sigma = sigma/adotoa
 
+        S_Gamma=grhov_t*(1+w_eff)*(vT+sigma)*k/adotoa/2._dl/k2
+        ckH=c_Gamma_ppf*k/adotoa
+        Gammadot=S_Gamma/(1+ckH*ckH)- Gamma -ckH*ckH*Gamma
+        Gammadot=Gammadot*adotoa
+        ayprime(EV%w_ix)=Gammadot
+
+        if(ckH*ckH.gt.3.d1)then
+            Gamma=0
+            Gammadot=0.d0
+            ayprime(EV%w_ix)=Gammadot
+        endif
+
+        Fa=1+3*(grhoT+gpres)/2._dl/k2/EV%kf(1)
+        dgqe=S_Gamma - Gammadot/adotoa - Gamma
+        dgqe=-dgqe/Fa*2._dl*k*adotoa + vT*grhov_t*(1+w_eff)
+        dgrhoe=-2*k2*EV%kf(1)*Gamma-3/k*adotoa*dgqe
+        dgrho=dgrho+dgrhoe
+        dgq=dgq+dgqe
+
+        EV%dgrho_e_ppf=dgrhoe
+        EV%dgq_e_ppf=dgqe
+    end if
+!----------------------------------------------------------------------------------------
     !  Get sigma (shear) and z from the constraints
     ! have to get z from eta for numerical stability
     z=(0.5_dl*dgrho/k + etak)/adotoa
@@ -3311,7 +3303,8 @@ else !GR limit ( model = 0 )
         sigma=(z+1.5_dl*dgq/k2)/EV%Kf(1)
         ayprime(2)=0.5_dl*dgq + CP%curv*z
     end if
-!FG? questo era commentato in eq_ppf, ho messo la considizione aggiuntiva sopra----------------
+end if
+
 !    if (.not. is_cosmological_constant .and. ay(1).lt.GRtrans) then
    
 !       ayprime(EV%w_ix)= -3*adotoa*(cs2_lam-w_lam)*(clxq+3*adotoa*(1+w_lam)*vq/k) &
@@ -3321,7 +3314,8 @@ else !GR limit ( model = 0 )
     
 !    end if
 !------------------------------------------------------------------------    
-end if
+
+
     if (associated(EV%OutputTransfer)) then
         EV%OutputTransfer(Transfer_kh) = k/(CP%h0/100._dl)
         EV%OutputTransfer(Transfer_cdm) = clxc
